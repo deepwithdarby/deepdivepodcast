@@ -27,7 +27,7 @@ export const PodcastPlayer: React.FC = () => {
   };
 
   return (
-    <Card className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-t border-border p-4">
+    <Card className="fixed bottom-16 left-0 right-0 z-40 bg-background/95 backdrop-blur-sm border-t border-border p-4">
       <div className="flex items-center gap-4 max-w-7xl mx-auto">
         {/* Podcast Info */}
         <div className="flex items-center gap-3 flex-1 min-w-0">

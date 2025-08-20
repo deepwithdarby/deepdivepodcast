@@ -37,7 +37,7 @@ export const Home: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background p-4 pb-32">
+    <div className="min-h-screen bg-background p-4 pb-40">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">

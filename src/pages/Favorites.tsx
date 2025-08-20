@@ -29,7 +29,7 @@ export const Favorites: React.FC = () => {
   const favoritePodcasts = allPodcasts.filter(podcast => favorites.includes(podcast.id));
 
   return (
-    <div className="min-h-screen bg-background p-4 pb-32">
+    <div className="min-h-screen bg-background p-4 pb-40">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <Heart className="h-8 w-8 text-red-500 fill-red-500" />

@@ -12,6 +12,10 @@ export const PodcastProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [categories, setCategories] = useState<Category[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Refs to always have latest values in event listeners
+  const currentRef = useRef<Podcast | null>(null);
+  const podcastsRef = useRef<Podcast[]>([]);
+  const isPlayingRef = useRef(false);
 
   // Load podcasts from Firebase
   useEffect(() => {
@@ -50,6 +54,11 @@ export const PodcastProvider: React.FC<{ children: ReactNode }> = ({ children })
   useEffect(() => {
     localStorage.setItem('favoritePodcasts', JSON.stringify(favorites));
   }, [favorites]);
+
+  // Keep refs in sync with latest state
+  useEffect(() => { currentRef.current = currentPodcast; }, [currentPodcast]);
+  useEffect(() => { podcastsRef.current = podcasts; }, [podcasts]);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
 
   const play = useCallback((podcast: Podcast) => {
     console.log('Play function called for podcast:', podcast.name, 'Audio URL:', podcast.audioUrl);
@@ -99,24 +108,26 @@ export const PodcastProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, [currentPodcast, podcasts, play]);
 
-  // Initialize audio element
+  // Initialize audio element once
   useEffect(() => {
     console.log('Initializing audio element');
-    audioRef.current = new Audio();
-    const audio = audioRef.current;
+    const audio = new Audio();
+    audioRef.current = audio;
 
     const handleEnded = () => {
       console.log('Audio ended, playing next podcast');
-      if (currentPodcast && podcasts.length > 0) {
-        const currentIndex = podcasts.findIndex(p => p.id === currentPodcast.id);
-        const nextIndex = (currentIndex + 1) % podcasts.length;
-        play(podcasts[nextIndex]);
+      const curr = currentRef.current;
+      const list = podcastsRef.current;
+      if (curr && list.length > 0) {
+        const currentIndex = list.findIndex(p => p.id === curr.id);
+        const nextIndex = (currentIndex + 1) % list.length;
+        play(list[nextIndex]);
       }
     };
 
     const handleLoadedData = () => {
       console.log('Audio loaded data');
-      if (isPlaying) {
+      if (isPlayingRef.current) {
         audio.play().catch(console.error);
       }
     };
@@ -136,7 +147,7 @@ export const PodcastProvider: React.FC<{ children: ReactNode }> = ({ children })
       audio.pause();
       audio.src = '';
     };
-  }, [currentPodcast, podcasts, play, isPlaying]);
+  }, []);
 
   const toggleFavorite = useCallback((podcastId: string) => {
     setFavorites(prev => 

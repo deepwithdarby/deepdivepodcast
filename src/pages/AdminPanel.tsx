@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
-import { ref, push, set } from 'firebase/database';
-import { auth, database } from '@/lib/firebase';
+import { collection, addDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -55,11 +55,9 @@ export const AdminPanel: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const podcastsRef = ref(database, 'podcasts');
-      const newPodcastRef = push(podcastsRef);
-      
-      await set(newPodcastRef, {
+      await addDoc(collection(db, 'podcasts'), {
         ...podcastData,
+        name_lowercase: podcastData.name.toLowerCase(),
         createdAt: Date.now()
       });
 

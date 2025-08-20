@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useRef, useEffect, ReactNode, useCallback } from 'react';
 import { Podcast, Category, PodcastContextType } from '@/types/podcast';
-import { database } from '@/lib/firebase';
-import { ref, onValue } from 'firebase/database';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 const PodcastContext = createContext<PodcastContextType | undefined>(undefined);
 
@@ -19,24 +19,21 @@ export const PodcastProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   // Load podcasts from Firebase
   useEffect(() => {
-    const podcastsRef = ref(database, 'podcasts');
-    const unsubscribe = onValue(podcastsRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const podcastsArray = Object.keys(data).map(key => ({
-          id: key,
-          ...data[key]
+    const q = query(collection(db, 'podcasts'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const podcastsArray = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Podcast[];
+      setPodcasts(podcastsArray);
+
+      // Extract unique categories
+      const uniqueCategories = Array.from(new Set(podcastsArray.map(podcast => podcast.category)))
+        .map(categoryName => ({
+          id: categoryName.toLowerCase().replace(/\s+/g, '-'),
+          name: categoryName
         }));
-        setPodcasts(podcastsArray);
-        
-        // Extract unique categories
-        const uniqueCategories = Array.from(new Set(podcastsArray.map(podcast => podcast.category)))
-          .map(categoryName => ({
-            id: categoryName.toLowerCase().replace(/\s+/g, '-'),
-            name: categoryName
-          }));
-        setCategories(uniqueCategories);
-      }
+      setCategories(uniqueCategories);
     });
 
     return () => unsubscribe();

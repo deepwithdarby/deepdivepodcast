@@ -3,34 +3,46 @@ import { Input } from '@/components/ui/input';
 import { Search as SearchIcon, Mic } from 'lucide-react';
 import { PodcastCard } from '@/components/PodcastCard';
 import { Podcast } from '@/types/podcast';
-import { database } from '@/lib/firebase';
-import { ref, onValue } from 'firebase/database';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 
 export const Search: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [allPodcasts, setAllPodcasts] = useState<Podcast[]>([]);
+  const [searchedPodcasts, setSearchedPodcasts] = useState<Podcast[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    const podcastsRef = ref(database, 'podcasts');
-    const unsubscribe = onValue(podcastsRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const podcastsArray = Object.keys(data).map(key => ({
-          id: key,
-          ...data[key]
-        }));
-        setAllPodcasts(podcastsArray);
+    const fetchPodcasts = async () => {
+      if (!searchTerm.trim()) {
+        setSearchedPodcasts([]);
+        setIsLoading(false);
+        return;
       }
-    });
 
-    return () => unsubscribe();
-  }, []);
+      setIsLoading(true);
+      const lowerCaseSearchTerm = searchTerm.toLowerCase();
+      const q = query(
+        collection(db, 'podcasts'),
+        orderBy('name_lowercase'),
+        where('name_lowercase', '>=', lowerCaseSearchTerm),
+        where('name_lowercase', '<=', lowerCaseSearchTerm + '\uf8ff')
+      );
 
-  const filteredPodcasts = allPodcasts.filter(podcast =>
-    podcast.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    podcast.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    podcast.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+      const querySnapshot = await getDocs(q);
+      const podcastsArray = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Podcast[];
+      setSearchedPodcasts(podcastsArray);
+      setIsLoading(false);
+    };
+
+    const debounceFetch = setTimeout(() => {
+      fetchPodcasts();
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(debounceFetch);
+  }, [searchTerm]);
 
   return (
     <div className="min-h-screen bg-background p-4 pb-40">
@@ -56,25 +68,33 @@ export const Search: React.FC = () => {
         {/* Results */}
         {searchTerm && (
           <section>
-            <h2 className="text-xl font-semibold text-foreground mb-4">
-              {filteredPodcasts.length} result{filteredPodcasts.length !== 1 ? 's' : ''} for "{searchTerm}"
-            </h2>
-            {filteredPodcasts.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {filteredPodcasts.map(podcast => (
-                  <PodcastCard key={podcast.id} podcast={podcast} />
-                ))}
+            {isLoading ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground text-lg">Searching...</p>
               </div>
             ) : (
-              <div className="text-center py-12">
-                <Mic className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground text-lg">
-                  No podcasts found matching "{searchTerm}"
-                </p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Try searching for different keywords
-                </p>
-              </div>
+              <>
+                <h2 className="text-xl font-semibold text-foreground mb-4">
+                  {searchedPodcasts.length} result{searchedPodcasts.length !== 1 ? 's' : ''} for "{searchTerm}"
+                </h2>
+                {searchedPodcasts.length > 0 ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                    {searchedPodcasts.map(podcast => (
+                      <PodcastCard key={podcast.id} podcast={podcast} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Mic className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground text-lg">
+                      No podcasts found matching "{searchTerm}"
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Try searching for different keywords
+                    </p>
+                  </div>
+                )}
+              </>
             )}
           </section>
         )}

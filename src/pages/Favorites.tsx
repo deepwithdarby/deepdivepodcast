@@ -2,31 +2,36 @@ import React, { useEffect, useState } from 'react';
 import { PodcastCard } from '@/components/PodcastCard';
 import { usePodcast } from '@/contexts/PodcastContext';
 import { Podcast } from '@/types/podcast';
-import { database } from '@/lib/firebase';
-import { ref, onValue } from 'firebase/database';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs, documentId } from 'firebase/firestore';
 import { Heart } from 'lucide-react';
 
 export const Favorites: React.FC = () => {
   const { favorites } = usePodcast();
-  const [allPodcasts, setAllPodcasts] = useState<Podcast[]>([]);
+  const [favoritePodcasts, setFavoritePodcasts] = useState<Podcast[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const podcastsRef = ref(database, 'podcasts');
-    const unsubscribe = onValue(podcastsRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const podcastsArray = Object.keys(data).map(key => ({
-          id: key,
-          ...data[key]
-        }));
-        setAllPodcasts(podcastsArray);
+    const fetchFavoritePodcasts = async () => {
+      setIsLoading(true);
+      if (favorites.length === 0) {
+        setFavoritePodcasts([]);
+        setIsLoading(false);
+        return;
       }
-    });
 
-    return () => unsubscribe();
-  }, []);
+      const q = query(collection(db, 'podcasts'), where(documentId(), 'in', favorites));
+      const querySnapshot = await getDocs(q);
+      const podcastsArray = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Podcast[];
+      setFavoritePodcasts(podcastsArray);
+      setIsLoading(false);
+    };
 
-  const favoritePodcasts = allPodcasts.filter(podcast => favorites.includes(podcast.id));
+    fetchFavoritePodcasts();
+  }, [favorites]);
 
   return (
     <div className="min-h-screen bg-background p-4 pb-40">
@@ -36,7 +41,11 @@ export const Favorites: React.FC = () => {
           <h1 className="text-3xl font-bold text-foreground">Your Favorites</h1>
         </div>
         
-        {favoritePodcasts.length > 0 ? (
+        {isLoading ? (
+          <div className="text-center py-16">
+            <p className="text-muted-foreground text-lg">Loading favorites...</p>
+          </div>
+        ) : favoritePodcasts.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {favoritePodcasts.map(podcast => (
               <PodcastCard key={podcast.id} podcast={podcast} />

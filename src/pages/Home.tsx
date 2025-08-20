@@ -2,39 +2,60 @@ import React, { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Search, Mic } from 'lucide-react';
 import { PodcastCard } from '@/components/PodcastCard';
-import { usePodcast } from '@/contexts/PodcastContext';
 import { Podcast } from '@/types/podcast';
-import { database } from '@/lib/firebase';
-import { ref, onValue } from 'firebase/database';
+import { db } from '@/lib/firebase';
+import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 
 export const Home: React.FC = () => {
-  const { podcasts } = usePodcast();
   const [searchTerm, setSearchTerm] = useState('');
-  const [allPodcasts, setAllPodcasts] = useState<Podcast[]>([]);
   const [recentPodcasts, setRecentPodcasts] = useState<Podcast[]>([]);
+  const [searchedPodcasts, setSearchedPodcasts] = useState<Podcast[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const podcastsRef = ref(database, 'podcasts');
-    const unsubscribe = onValue(podcastsRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const podcastsArray = Object.keys(data).map(key => ({
-          id: key,
-          ...data[key]
-        }));
-        setAllPodcasts(podcastsArray);
-        // Get recent podcasts (last 5 uploaded)
-        const sortedByDate = podcastsArray.sort((a, b) => b.createdAt - a.createdAt);
-        setRecentPodcasts(sortedByDate.slice(0, 5));
-      }
-    });
+    const fetchRecentPodcasts = async () => {
+      const q = query(collection(db, 'podcasts'), orderBy('createdAt', 'desc'), limit(5));
+      const querySnapshot = await getDocs(q);
+      const podcastsArray = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Podcast[];
+      setRecentPodcasts(podcastsArray);
+    };
 
-    return () => unsubscribe();
+    fetchRecentPodcasts();
   }, []);
 
-  const filteredPodcasts = allPodcasts.filter(podcast =>
-    podcast.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(() => {
+    const fetchPodcasts = async () => {
+      setIsLoading(true);
+      let q;
+      if (searchTerm) {
+        const lowerCaseSearchTerm = searchTerm.toLowerCase();
+        q = query(
+          collection(db, 'podcasts'),
+          orderBy('name_lowercase'),
+          where('name_lowercase', '>=', lowerCaseSearchTerm),
+          where('name_lowercase', '<=', lowerCaseSearchTerm + '\uf8ff')
+        );
+      } else {
+        q = query(collection(db, 'podcasts'), orderBy('createdAt', 'desc'));
+      }
+      const querySnapshot = await getDocs(q);
+      const podcastsArray = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Podcast[];
+      setSearchedPodcasts(podcastsArray);
+      setIsLoading(false);
+    };
+
+    const debounceFetch = setTimeout(() => {
+      fetchPodcasts();
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(debounceFetch);
+  }, [searchTerm]);
 
   return (
     <div className="min-h-screen bg-background p-4 pb-40">
@@ -74,14 +95,18 @@ export const Home: React.FC = () => {
           </section>
         )}
 
-        {/* All Podcasts */}
+        {/* All Podcasts / Search Results */}
         <section>
           <h2 className="text-2xl font-semibold text-foreground mb-4">
             {searchTerm ? 'Search Results' : 'All Podcasts'}
           </h2>
-          {filteredPodcasts.length > 0 ? (
+          {isLoading ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground text-lg">Loading...</p>
+            </div>
+          ) : searchedPodcasts.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {filteredPodcasts.map(podcast => (
+              {searchedPodcasts.map(podcast => (
                 <PodcastCard key={podcast.id} podcast={podcast} />
               ))}
             </div>

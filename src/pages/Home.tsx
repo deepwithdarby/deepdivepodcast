@@ -1,39 +1,39 @@
 import React, { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
-import { SongCard } from '@/components/SongCard';
-import { useMusic } from '@/contexts/MusicContext';
-import { Song } from '@/types/music';
+import { Search, Mic } from 'lucide-react';
+import { PodcastCard } from '@/components/PodcastCard';
+import { usePodcast } from '@/contexts/PodcastContext';
+import { Podcast } from '@/types/podcast';
 import { database } from '@/lib/firebase';
 import { ref, onValue } from 'firebase/database';
 
 export const Home: React.FC = () => {
-  const { songs } = useMusic();
+  const { podcasts } = usePodcast();
   const [searchTerm, setSearchTerm] = useState('');
-  const [allSongs, setAllSongs] = useState<Song[]>([]);
-  const [recentSongs, setRecentSongs] = useState<Song[]>([]);
+  const [allPodcasts, setAllPodcasts] = useState<Podcast[]>([]);
+  const [recentPodcasts, setRecentPodcasts] = useState<Podcast[]>([]);
 
   useEffect(() => {
-    const songsRef = ref(database, 'songs');
-    const unsubscribe = onValue(songsRef, (snapshot) => {
+    const podcastsRef = ref(database, 'podcasts');
+    const unsubscribe = onValue(podcastsRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const songsArray = Object.keys(data).map(key => ({
+        const podcastsArray = Object.keys(data).map(key => ({
           id: key,
           ...data[key]
         }));
-        setAllSongs(songsArray);
-        // Get recent songs (last 5 uploaded)
-        const sortedByDate = songsArray.sort((a, b) => b.createdAt - a.createdAt);
-        setRecentSongs(sortedByDate.slice(0, 5));
+        setAllPodcasts(podcastsArray);
+        // Get recent podcasts (last 5 uploaded)
+        const sortedByDate = podcastsArray.sort((a, b) => b.createdAt - a.createdAt);
+        setRecentPodcasts(sortedByDate.slice(0, 5));
       }
     });
 
     return () => unsubscribe();
   }, []);
 
-  const filteredSongs = allSongs.filter(song =>
-    song.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredPodcasts = allPodcasts.filter(podcast =>
+    podcast.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -41,10 +41,13 @@ export const Home: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-music-secondary bg-clip-text text-transparent mb-2">
-            MelodyStream
-          </h1>
-          <p className="text-muted-foreground">Discover your next favorite song</p>
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <Mic className="h-10 w-10 text-primary" />
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-music-secondary bg-clip-text text-transparent">
+              deepdive podcast
+            </h1>
+          </div>
+          <p className="text-muted-foreground text-center">Discover your next favorite podcast episode</p>
         </div>
 
         {/* Search Bar */}
@@ -52,7 +55,7 @@ export const Home: React.FC = () => {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
             type="text"
-            placeholder="Search for songs..."
+            placeholder="Search for podcasts..."
             className="pl-10 bg-card border-border focus:border-primary"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -60,32 +63,32 @@ export const Home: React.FC = () => {
         </div>
 
         {/* Recently Released */}
-        {!searchTerm && recentSongs.length > 0 && (
+        {!searchTerm && recentPodcasts.length > 0 && (
           <section className="mb-8">
             <h2 className="text-2xl font-semibold text-foreground mb-4">Recently Released</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-              {recentSongs.map(song => (
-                <SongCard key={song.id} song={song} />
+              {recentPodcasts.map(podcast => (
+                <PodcastCard key={podcast.id} podcast={podcast} />
               ))}
             </div>
           </section>
         )}
 
-        {/* All Songs */}
+        {/* All Podcasts */}
         <section>
           <h2 className="text-2xl font-semibold text-foreground mb-4">
-            {searchTerm ? 'Search Results' : 'All Songs'}
+            {searchTerm ? 'Search Results' : 'All Podcasts'}
           </h2>
-          {filteredSongs.length > 0 ? (
+          {filteredPodcasts.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {filteredSongs.map(song => (
-                <SongCard key={song.id} song={song} />
+              {filteredPodcasts.map(podcast => (
+                <PodcastCard key={podcast.id} podcast={podcast} />
               ))}
             </div>
           ) : (
             <div className="text-center py-12">
               <p className="text-muted-foreground text-lg">
-                {searchTerm ? 'No songs found matching your search.' : 'No songs available yet.'}
+                {searchTerm ? 'No podcasts found matching your search.' : 'No podcasts available yet.'}
               </p>
             </div>
           )}

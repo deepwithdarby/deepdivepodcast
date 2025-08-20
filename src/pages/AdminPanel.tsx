@@ -9,10 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Music, LogOut, Upload, Plus } from 'lucide-react';
+import { Mic, LogOut, Upload, Plus } from 'lucide-react';
 
 export const AdminPanel: React.FC = () => {
-  const [songData, setSongData] = useState({
+  const [podcastData, setPodcastData] = useState({
     name: '',
     description: '',
     category: '',
@@ -44,7 +44,7 @@ export const AdminPanel: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setSongData(prev => ({
+    setPodcastData(prev => ({
       ...prev,
       [name]: value
     }));
@@ -55,21 +55,21 @@ export const AdminPanel: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const songsRef = ref(database, 'songs');
-      const newSongRef = push(songsRef);
+      const podcastsRef = ref(database, 'podcasts');
+      const newPodcastRef = push(podcastsRef);
       
-      await set(newSongRef, {
-        ...songData,
+      await set(newPodcastRef, {
+        ...podcastData,
         createdAt: Date.now()
       });
 
       toast({
-        title: "Song uploaded successfully!",
-        description: `"${songData.name}" has been added to the music library.`,
+        title: "Podcast uploaded successfully!",
+        description: `"${podcastData.name}" has been added to the podcast library.`,
       });
 
       // Reset form
-      setSongData({
+      setPodcastData({
         name: '',
         description: '',
         category: '',
@@ -79,7 +79,7 @@ export const AdminPanel: React.FC = () => {
     } catch (error: any) {
       toast({
         title: "Upload failed",
-        description: error.message || "Failed to upload song",
+        description: error.message || "Failed to upload podcast",
         variant: "destructive",
       });
     } finally {
@@ -93,7 +93,7 @@ export const AdminPanel: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
-            <Music className="h-8 w-8 text-primary" />
+            <Mic className="h-8 w-8 text-primary" />
             <h1 className="text-3xl font-bold text-foreground">Admin Panel</h1>
           </div>
           <Button
@@ -111,19 +111,19 @@ export const AdminPanel: React.FC = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-foreground">
               <Plus className="h-5 w-5" />
-              Add New Song
+              Add New Podcast Episode
             </CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-foreground">Song Name</Label>
+                <Label htmlFor="name" className="text-foreground">Episode Name</Label>
                 <Input
                   id="name"
                   name="name"
                   type="text"
-                  placeholder="Enter song name"
-                  value={songData.name}
+                  placeholder="Enter episode name"
+                  value={podcastData.name}
                   onChange={handleInputChange}
                   required
                   className="bg-input border-border focus:border-primary"
@@ -135,8 +135,8 @@ export const AdminPanel: React.FC = () => {
                 <Textarea
                   id="description"
                   name="description"
-                  placeholder="Enter song description"
-                  value={songData.description}
+                  placeholder="Enter episode description"
+                  value={podcastData.description}
                   onChange={handleInputChange}
                   required
                   className="bg-input border-border focus:border-primary min-h-[100px]"
@@ -149,8 +149,8 @@ export const AdminPanel: React.FC = () => {
                   id="category"
                   name="category"
                   type="text"
-                  placeholder="e.g., pop, rock, jazz, classical"
-                  value={songData.category}
+                  placeholder="e.g., technology, business, comedy"
+                  value={podcastData.category}
                   onChange={handleInputChange}
                   required
                   className="bg-input border-border focus:border-primary"
@@ -158,13 +158,13 @@ export const AdminPanel: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="bannerUrl" className="text-foreground">Banner Image URL</Label>
+                <Label htmlFor="bannerUrl" className="text-foreground">Cover Image URL</Label>
                 <Input
                   id="bannerUrl"
                   name="bannerUrl"
                   type="url"
-                  placeholder="https://example.com/image.jpg"
-                  value={songData.bannerUrl}
+                  placeholder="https://example.com/cover.jpg"
+                  value={podcastData.bannerUrl}
                   onChange={handleInputChange}
                   required
                   className="bg-input border-border focus:border-primary"
@@ -177,8 +177,8 @@ export const AdminPanel: React.FC = () => {
                   id="audioUrl"
                   name="audioUrl"
                   type="url"
-                  placeholder="https://example.com/song.mp3"
-                  value={songData.audioUrl}
+                  placeholder="https://example.com/episode.mp3"
+                  value={podcastData.audioUrl}
                   onChange={handleInputChange}
                   required
                   className="bg-input border-border focus:border-primary"
@@ -191,7 +191,7 @@ export const AdminPanel: React.FC = () => {
                 disabled={isLoading}
               >
                 <Upload className="h-4 w-4 mr-2" />
-                {isLoading ? 'Uploading...' : 'Upload Song'}
+                {isLoading ? 'Uploading...' : 'Upload Episode'}
               </Button>
             </form>
           </CardContent>

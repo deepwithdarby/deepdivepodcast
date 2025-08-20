@@ -3,8 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { MusicProvider } from "@/contexts/MusicContext";
-import { MusicPlayer } from "@/components/MusicPlayer";
+import { PodcastProvider } from "@/contexts/PodcastContext";
+import { PodcastPlayer } from "@/components/PodcastPlayer";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { Home } from "@/pages/Home";
 import { Search } from "@/pages/Search";
@@ -19,7 +19,7 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <MusicProvider>
+      <PodcastProvider>
         <Toaster />
         <Sonner />
         <BrowserRouter>
@@ -34,10 +34,10 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
             <BottomNavigation />
-            <MusicPlayer />
+            <PodcastPlayer />
           </div>
         </BrowserRouter>
-      </MusicProvider>
+      </PodcastProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

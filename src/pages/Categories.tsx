@@ -1,28 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
-import { SongCard } from '@/components/SongCard';
-import { Song } from '@/types/music';
+import { PodcastCard } from '@/components/PodcastCard';
+import { Podcast } from '@/types/podcast';
 import { database } from '@/lib/firebase';
 import { ref, onValue } from 'firebase/database';
+import { Folder } from 'lucide-react';
 
 export const Categories: React.FC = () => {
-  const [allSongs, setAllSongs] = useState<Song[]>([]);
+  const [allPodcasts, setAllPodcasts] = useState<Podcast[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
 
   useEffect(() => {
-    const songsRef = ref(database, 'songs');
-    const unsubscribe = onValue(songsRef, (snapshot) => {
+    const podcastsRef = ref(database, 'podcasts');
+    const unsubscribe = onValue(podcastsRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const songsArray = Object.keys(data).map(key => ({
+        const podcastsArray = Object.keys(data).map(key => ({
           id: key,
           ...data[key]
         }));
-        setAllSongs(songsArray);
+        setAllPodcasts(podcastsArray);
         
         // Extract unique categories
-        const uniqueCategories = [...new Set(songsArray.map(song => song.category))];
+        const uniqueCategories = [...new Set(podcastsArray.map(podcast => podcast.category))];
         setCategories(uniqueCategories);
       }
     });
@@ -30,14 +31,17 @@ export const Categories: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  const filteredSongs = selectedCategory 
-    ? allSongs.filter(song => song.category === selectedCategory)
+  const filteredPodcasts = selectedCategory 
+    ? allPodcasts.filter(podcast => podcast.category === selectedCategory)
     : [];
 
   return (
     <div className="min-h-screen bg-background p-4 pb-32">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-foreground mb-6">Categories</h1>
+        <div className="flex items-center gap-3 mb-6">
+          <Folder className="h-8 w-8 text-primary" />
+          <h1 className="text-3xl font-bold text-foreground">Categories</h1>
+        </div>
         
         {!selectedCategory ? (
           // Categories Grid
@@ -48,17 +52,20 @@ export const Categories: React.FC = () => {
                 className="p-6 cursor-pointer bg-card hover:bg-music-hover transition-all duration-300 border-border/50 group"
                 onClick={() => setSelectedCategory(category)}
               >
-                <h3 className="text-lg font-semibold text-foreground capitalize text-center group-hover:text-primary transition-colors">
-                  {category}
-                </h3>
-                <p className="text-sm text-muted-foreground text-center mt-2">
-                  {allSongs.filter(song => song.category === category).length} songs
+                <div className="flex items-center gap-3 mb-2">
+                  <Folder className="h-6 w-6 text-primary group-hover:text-primary/80 transition-colors" />
+                  <h3 className="text-lg font-semibold text-foreground capitalize group-hover:text-primary transition-colors">
+                    {category}
+                  </h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {allPodcasts.filter(podcast => podcast.category === category).length} episodes
                 </p>
               </Card>
             ))}
           </div>
         ) : (
-          // Category Songs
+          // Category Podcasts
           <div>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-semibold text-foreground capitalize">
@@ -73,8 +80,8 @@ export const Categories: React.FC = () => {
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {filteredSongs.map(song => (
-                <SongCard key={song.id} song={song} />
+              {filteredPodcasts.map(podcast => (
+                <PodcastCard key={podcast.id} podcast={podcast} />
               ))}
             </div>
           </div>

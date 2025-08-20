@@ -1,4 +1,4 @@
-export interface Song {
+export interface Podcast {
   id: string;
   name: string;
   description: string;
@@ -13,17 +13,17 @@ export interface Category {
   name: string;
 }
 
-export interface MusicContextType {
-  currentSong: Song | null;
+export interface PodcastContextType {
+  currentPodcast: Podcast | null;
   isPlaying: boolean;
-  songs: Song[];
+  podcasts: Podcast[];
   categories: Category[];
   favorites: string[];
-  play: (song: Song) => void;
+  play: (podcast: Podcast) => void;
   pause: () => void;
   resume: () => void;
-  nextSong: () => void;
-  previousSong: () => void;
-  toggleFavorite: (songId: string) => void;
-  isFavorite: (songId: string) => boolean;
+  nextPodcast: () => void;
+  previousPodcast: () => void;
+  toggleFavorite: (podcastId: string) => void;
+  isFavorite: (podcastId: string) => boolean;
 }

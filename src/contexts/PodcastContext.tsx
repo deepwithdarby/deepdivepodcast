@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useRef, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useRef, useEffect, ReactNode, useCallback } from 'react';
 import { Podcast, Category, PodcastContextType } from '@/types/podcast';
 import { database } from '@/lib/firebase';
 import { ref, onValue } from 'firebase/database';
@@ -51,6 +51,47 @@ export const PodcastProvider: React.FC<{ children: ReactNode }> = ({ children })
     localStorage.setItem('favoritePodcasts', JSON.stringify(favorites));
   }, [favorites]);
 
+  const play = useCallback((podcast: Podcast) => {
+    if (audioRef.current) {
+      setCurrentPodcast(podcast);
+      audioRef.current.src = podcast.audioUrl;
+      audioRef.current.play().then(() => {
+        setIsPlaying(true);
+      }).catch(console.error);
+    }
+  }, []);
+
+  const pause = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    }
+  }, []);
+
+  const resume = useCallback(() => {
+    if (audioRef.current && currentPodcast) {
+      audioRef.current.play().then(() => {
+        setIsPlaying(true);
+      }).catch(console.error);
+    }
+  }, [currentPodcast]);
+
+  const nextPodcast = useCallback(() => {
+    if (currentPodcast && podcasts.length > 0) {
+      const currentIndex = podcasts.findIndex(p => p.id === currentPodcast.id);
+      const nextIndex = (currentIndex + 1) % podcasts.length;
+      play(podcasts[nextIndex]);
+    }
+  }, [currentPodcast, podcasts, play]);
+
+  const previousPodcast = useCallback(() => {
+    if (currentPodcast && podcasts.length > 0) {
+      const currentIndex = podcasts.findIndex(p => p.id === currentPodcast.id);
+      const previousIndex = currentIndex === 0 ? podcasts.length - 1 : currentIndex - 1;
+      play(podcasts[previousIndex]);
+    }
+  }, [currentPodcast, podcasts, play]);
+
   // Initialize audio element
   useEffect(() => {
     audioRef.current = new Audio();
@@ -75,60 +116,19 @@ export const PodcastProvider: React.FC<{ children: ReactNode }> = ({ children })
       audio.pause();
       audio.src = '';
     };
-  }, []);
+  }, [nextPodcast, isPlaying]);
 
-  const play = (podcast: Podcast) => {
-    if (audioRef.current) {
-      setCurrentPodcast(podcast);
-      audioRef.current.src = podcast.audioUrl;
-      audioRef.current.play().then(() => {
-        setIsPlaying(true);
-      }).catch(console.error);
-    }
-  };
-
-  const pause = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    }
-  };
-
-  const resume = () => {
-    if (audioRef.current && currentPodcast) {
-      audioRef.current.play().then(() => {
-        setIsPlaying(true);
-      }).catch(console.error);
-    }
-  };
-
-  const nextPodcast = () => {
-    if (currentPodcast && podcasts.length > 0) {
-      const currentIndex = podcasts.findIndex(p => p.id === currentPodcast.id);
-      const nextIndex = (currentIndex + 1) % podcasts.length;
-      play(podcasts[nextIndex]);
-    }
-  };
-
-  const previousPodcast = () => {
-    if (currentPodcast && podcasts.length > 0) {
-      const currentIndex = podcasts.findIndex(p => p.id === currentPodcast.id);
-      const previousIndex = currentIndex === 0 ? podcasts.length - 1 : currentIndex - 1;
-      play(podcasts[previousIndex]);
-    }
-  };
-
-  const toggleFavorite = (podcastId: string) => {
+  const toggleFavorite = useCallback((podcastId: string) => {
     setFavorites(prev => 
       prev.includes(podcastId) 
         ? prev.filter(id => id !== podcastId)
         : [...prev, podcastId]
     );
-  };
+  }, []);
 
-  const isFavorite = (podcastId: string) => {
+  const isFavorite = useCallback((podcastId: string) => {
     return favorites.includes(podcastId);
-  };
+  }, [favorites]);
 
   const value: PodcastContextType = {
     currentPodcast,

@@ -52,12 +52,19 @@ export const PodcastProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [favorites]);
 
   const play = useCallback((podcast: Podcast) => {
+    console.log('Play function called for podcast:', podcast.name, 'Audio URL:', podcast.audioUrl);
     if (audioRef.current) {
       setCurrentPodcast(podcast);
       audioRef.current.src = podcast.audioUrl;
+      console.log('Audio src set to:', audioRef.current.src);
       audioRef.current.play().then(() => {
+        console.log('Audio started playing successfully');
         setIsPlaying(true);
-      }).catch(console.error);
+      }).catch((error) => {
+        console.error('Error playing audio:', error);
+      });
+    } else {
+      console.error('Audio ref is null');
     }
   }, []);
 
@@ -94,29 +101,42 @@ export const PodcastProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   // Initialize audio element
   useEffect(() => {
+    console.log('Initializing audio element');
     audioRef.current = new Audio();
     const audio = audioRef.current;
 
     const handleEnded = () => {
-      nextPodcast();
+      console.log('Audio ended, playing next podcast');
+      if (currentPodcast && podcasts.length > 0) {
+        const currentIndex = podcasts.findIndex(p => p.id === currentPodcast.id);
+        const nextIndex = (currentIndex + 1) % podcasts.length;
+        play(podcasts[nextIndex]);
+      }
     };
 
     const handleLoadedData = () => {
+      console.log('Audio loaded data');
       if (isPlaying) {
         audio.play().catch(console.error);
       }
     };
 
+    const handleError = (error: Event) => {
+      console.error('Audio error:', error);
+    };
+
     audio.addEventListener('ended', handleEnded);
     audio.addEventListener('loadeddata', handleLoadedData);
+    audio.addEventListener('error', handleError);
 
     return () => {
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('loadeddata', handleLoadedData);
+      audio.removeEventListener('error', handleError);
       audio.pause();
       audio.src = '';
     };
-  }, [nextPodcast, isPlaying]);
+  }, [currentPodcast, podcasts, play, isPlaying]);
 
   const toggleFavorite = useCallback((podcastId: string) => {
     setFavorites(prev => 

@@ -127,7 +127,10 @@ export const AdminPanel: React.FC = () => {
       const keywords = generateKeywords(podcastData.name, podcastData.description, categories);
       
       const podcastPayload = {
-        ...podcastData,
+        name: podcastData.name,
+        description: podcastData.description,
+        bannerUrl: podcastData.bannerUrl,
+        audioUrl: podcastData.audioUrl,
         categories,
         keywords,
         name_lowercase: podcastData.name.toLowerCase(),

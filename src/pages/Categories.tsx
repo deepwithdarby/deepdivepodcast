@@ -20,8 +20,15 @@ export const Categories: React.FC = () => {
       const podcastSnapshot = await getDocs(podcastsCollection);
       const podcastsArray = podcastSnapshot.docs.map(doc => doc.data() as Podcast);
       setAllPodcasts(podcastsArray);
-      const uniqueCategories = [...new Set(podcastsArray.map(podcast => podcast.category))];
-      setCategories(uniqueCategories);
+      const uniqueSet = new Set<string>();
+      podcastsArray.forEach(p => {
+        if (Array.isArray(p.categories) && p.categories.length) {
+          p.categories.forEach(c => uniqueSet.add(c));
+        } else if (p.category) {
+          uniqueSet.add(p.category);
+        }
+      });
+      setCategories(Array.from(uniqueSet));
       setIsLoading(false);
     };
 
@@ -32,13 +39,11 @@ export const Categories: React.FC = () => {
     const fetchPodcastsByCategory = async () => {
       if (selectedCategory) {
         setIsLoading(true);
-        const q = query(collection(db, 'podcasts'), where('category', '==', selectedCategory));
-        const querySnapshot = await getDocs(q);
-        const podcastsArray = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Podcast[];
-        setFilteredPodcasts(podcastsArray);
+        const filtered = allPodcasts.filter(p =>
+          (Array.isArray(p.categories) && p.categories.includes(selectedCategory)) ||
+          p.category === selectedCategory
+        );
+        setFilteredPodcasts(filtered);
         setIsLoading(false);
       } else {
         setFilteredPodcasts([]);
@@ -46,7 +51,7 @@ export const Categories: React.FC = () => {
     };
 
     fetchPodcastsByCategory();
-  }, [selectedCategory]);
+  }, [selectedCategory, allPodcasts]);
 
   return (
     <div className="min-h-screen bg-background p-4 pb-40">
@@ -77,7 +82,7 @@ export const Categories: React.FC = () => {
                     </h3>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {allPodcasts.filter(podcast => podcast.category === category).length} episodes
+                    {allPodcasts.filter(podcast => (Array.isArray(podcast.categories) ? podcast.categories.includes(category) : podcast.category === category)).length} episodes
                   </p>
                 </Card>
               ))}

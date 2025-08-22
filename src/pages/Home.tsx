@@ -1,61 +1,142 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Search, Mic } from 'lucide-react';
 import { PodcastCard } from '@/components/PodcastCard';
 import { Podcast } from '@/types/podcast';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, where, startAfter, DocumentSnapshot } from 'firebase/firestore';
 
 export const Home: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [recentPodcasts, setRecentPodcasts] = useState<Podcast[]>([]);
+  const [allPodcasts, setAllPodcasts] = useState<Podcast[]>([]);
   const [searchedPodcasts, setSearchedPodcasts] = useState<Podcast[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
+  const [hasMore, setHasMore] = useState(true);
 
-  useEffect(() => {
-    const fetchRecentPodcasts = async () => {
-      const q = query(collection(db, 'podcasts'), orderBy('createdAt', 'desc'), limit(5));
+  const loadPodcasts = useCallback(async (loadMore = false) => {
+    if (loadMore && !hasMore) return;
+    
+    setIsLoading(!loadMore);
+    setIsLoadingMore(loadMore);
+
+    try {
+      let q;
+      if (loadMore && lastDoc) {
+        q = query(
+          collection(db, 'podcasts'), 
+          orderBy('createdAt', 'desc'), 
+          startAfter(lastDoc),
+          limit(20)
+        );
+      } else {
+        q = query(
+          collection(db, 'podcasts'), 
+          orderBy('createdAt', 'desc'), 
+          limit(20)
+        );
+      }
+
       const querySnapshot = await getDocs(q);
       const podcastsArray = querySnapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data()
-      })) as Podcast[];
-      setRecentPodcasts(podcastsArray);
-    };
+        ...(doc.data() as Omit<Podcast, 'id'>)
+      }));
 
-    fetchRecentPodcasts();
+      if (loadMore) {
+        setAllPodcasts(prev => [...prev, ...podcastsArray]);
+      } else {
+        setAllPodcasts(podcastsArray);
+        setRecentPodcasts(podcastsArray.slice(0, 5));
+      }
+
+      setLastDoc(querySnapshot.docs[querySnapshot.docs.length - 1] || null);
+      setHasMore(querySnapshot.docs.length === 20);
+    } catch (error) {
+      console.error('Error loading podcasts:', error);
+    } finally {
+      setIsLoading(false);
+      setIsLoadingMore(false);
+    }
+  }, [lastDoc, hasMore]);
+
+  useEffect(() => {
+    loadPodcasts();
   }, []);
 
   useEffect(() => {
-    const fetchPodcasts = async () => {
-      setIsLoading(true);
-      let q;
-      if (searchTerm) {
-        const lowerCaseSearchTerm = searchTerm.toLowerCase();
-        q = query(
-          collection(db, 'podcasts'),
-          orderBy('name_lowercase'),
-          where('name_lowercase', '>=', lowerCaseSearchTerm),
-          where('name_lowercase', '<=', lowerCaseSearchTerm + '\uf8ff')
-        );
-      } else {
-        q = query(collection(db, 'podcasts'), orderBy('createdAt', 'desc'));
+    const searchPodcasts = async () => {
+      if (!searchTerm.trim()) {
+        setSearchedPodcasts([]);
+        return;
       }
-      const querySnapshot = await getDocs(q);
-      const podcastsArray = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Podcast[];
-      setSearchedPodcasts(podcastsArray);
-      setIsLoading(false);
+
+      setIsLoading(true);
+      try {
+        const searchWords = searchTerm.toLowerCase().split(' ').filter(word => word.length > 0);
+        const promises = searchWords.map(word => {
+          const q = query(
+            collection(db, 'podcasts'),
+            where('keywords', 'array-contains', word)
+          );
+          return getDocs(q);
+        });
+
+        const results = await Promise.all(promises);
+        const podcastMap = new Map<string, { podcast: Podcast; matches: number }>();
+
+        results.forEach((querySnapshot, index) => {
+          querySnapshot.docs.forEach(doc => {
+            const podcast = {
+              id: doc.id,
+              ...(doc.data() as Omit<Podcast, 'id'>)
+            };
+            const existing = podcastMap.get(podcast.id);
+            if (existing) {
+              existing.matches++;
+            } else {
+              podcastMap.set(podcast.id, { podcast, matches: 1 });
+            }
+          });
+        });
+
+        const sortedPodcasts = Array.from(podcastMap.values())
+          .sort((a, b) => b.matches - a.matches)
+          .map(item => item.podcast);
+
+        setSearchedPodcasts(sortedPodcasts);
+      } catch (error) {
+        console.error('Error searching podcasts:', error);
+        setSearchedPodcasts([]);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     const debounceFetch = setTimeout(() => {
-      fetchPodcasts();
-    }, 300); // 300ms debounce
+      searchPodcasts();
+    }, 300);
 
     return () => clearTimeout(debounceFetch);
   }, [searchTerm]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (
+        window.innerHeight + document.documentElement.scrollTop
+        >= document.documentElement.offsetHeight - 1000
+      ) {
+        if (!searchTerm && hasMore && !isLoadingMore) {
+          loadPodcasts(true);
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [searchTerm, hasMore, isLoadingMore, loadPodcasts]);
 
   return (
     <div className="min-h-screen bg-background p-4 pb-40">
@@ -100,16 +181,23 @@ export const Home: React.FC = () => {
           <h2 className="text-2xl font-semibold text-foreground mb-4">
             {searchTerm ? 'Search Results' : 'All Podcasts'}
           </h2>
-          {isLoading ? (
+          {isLoading && (!searchTerm ? allPodcasts.length === 0 : true) ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground text-lg">Loading...</p>
             </div>
-          ) : searchedPodcasts.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {searchedPodcasts.map(podcast => (
-                <PodcastCard key={podcast.id} podcast={podcast} />
-              ))}
-            </div>
+          ) : (searchTerm ? searchedPodcasts : allPodcasts).length > 0 ? (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {(searchTerm ? searchedPodcasts : allPodcasts).map(podcast => (
+                  <PodcastCard key={podcast.id} podcast={podcast} />
+                ))}
+              </div>
+              {!searchTerm && isLoadingMore && (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">Loading more podcasts...</p>
+                </div>
+              )}
+            </>
           ) : (
             <div className="text-center py-12">
               <p className="text-muted-foreground text-lg">

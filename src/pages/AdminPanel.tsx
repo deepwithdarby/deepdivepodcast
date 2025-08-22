@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc, query, orderBy } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Mic, LogOut, Upload, Plus } from 'lucide-react';
+import { Mic, LogOut, Upload, Plus, Edit, Trash2 } from 'lucide-react';
+import { Podcast } from '@/types/podcast';
 
 export const AdminPanel: React.FC = () => {
   const [podcastData, setPodcastData] = useState({
@@ -19,7 +20,10 @@ export const AdminPanel: React.FC = () => {
     bannerUrl: '',
     audioUrl: ''
   });
+  const [podcasts, setPodcasts] = useState<Podcast[]>([]);
+  const [editingPodcast, setEditingPodcast] = useState<Podcast | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingPodcasts, setIsLoadingPodcasts] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -27,11 +31,29 @@ export const AdminPanel: React.FC = () => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       if (!user) {
         navigate('/admin/login');
+      } else {
+        loadPodcasts();
       }
     });
 
     return () => unsubscribe();
   }, [navigate]);
+
+  const loadPodcasts = async () => {
+    try {
+      const q = query(collection(db, 'podcasts'), orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      const podcastsArray = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Podcast[];
+      setPodcasts(podcastsArray);
+    } catch (error) {
+      console.error('Error loading podcasts:', error);
+    } finally {
+      setIsLoadingPodcasts(false);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -42,6 +64,11 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
+  const generateKeywords = (name: string, description: string, categories: string[]) => {
+    const text = `${name} ${description} ${categories.join(' ')}`.toLowerCase();
+    return [...new Set(text.match(/\b\w+\b/g) || [])];
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setPodcastData(prev => ({
@@ -50,21 +77,76 @@ export const AdminPanel: React.FC = () => {
     }));
   };
 
+  const handleEdit = (podcast: Podcast) => {
+    setEditingPodcast(podcast);
+    setPodcastData({
+      name: podcast.name,
+      description: podcast.description,
+      category: podcast.categories?.join(', ') || podcast.category,
+      bannerUrl: podcast.bannerUrl,
+      audioUrl: podcast.audioUrl
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingPodcast(null);
+    setPodcastData({
+      name: '',
+      description: '',
+      category: '',
+      bannerUrl: '',
+      audioUrl: ''
+    });
+  };
+
+  const handleDelete = async (podcastId: string, podcastName: string) => {
+    if (!confirm(`Are you sure you want to delete "${podcastName}"?`)) return;
+
+    try {
+      await deleteDoc(doc(db, 'podcasts', podcastId));
+      toast({
+        title: "Podcast deleted",
+        description: `"${podcastName}" has been deleted.`,
+      });
+      loadPodcasts();
+    } catch (error: any) {
+      toast({
+        title: "Delete failed",
+        description: error.message || "Failed to delete podcast",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      await addDoc(collection(db, 'podcasts'), {
+      const categories = podcastData.category.split(',').map(cat => cat.trim()).filter(Boolean);
+      const keywords = generateKeywords(podcastData.name, podcastData.description, categories);
+      
+      const podcastPayload = {
         ...podcastData,
+        categories,
+        keywords,
         name_lowercase: podcastData.name.toLowerCase(),
-        createdAt: Date.now()
-      });
+        createdAt: editingPodcast ? editingPodcast.createdAt : Date.now()
+      };
 
-      toast({
-        title: "Podcast uploaded successfully!",
-        description: `"${podcastData.name}" has been added to the podcast library.`,
-      });
+      if (editingPodcast) {
+        await updateDoc(doc(db, 'podcasts', editingPodcast.id), podcastPayload);
+        toast({
+          title: "Podcast updated successfully!",
+          description: `"${podcastData.name}" has been updated.`,
+        });
+      } else {
+        await addDoc(collection(db, 'podcasts'), podcastPayload);
+        toast({
+          title: "Podcast uploaded successfully!",
+          description: `"${podcastData.name}" has been added to the podcast library.`,
+        });
+      }
 
       // Reset form
       setPodcastData({
@@ -74,10 +156,12 @@ export const AdminPanel: React.FC = () => {
         bannerUrl: '',
         audioUrl: ''
       });
+      setEditingPodcast(null);
+      loadPodcasts();
     } catch (error: any) {
       toast({
-        title: "Upload failed",
-        description: error.message || "Failed to upload podcast",
+        title: editingPodcast ? "Update failed" : "Upload failed",
+        description: error.message || `Failed to ${editingPodcast ? 'update' : 'upload'} podcast`,
         variant: "destructive",
       });
     } finally {
@@ -108,8 +192,8 @@ export const AdminPanel: React.FC = () => {
         <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-foreground">
-              <Plus className="h-5 w-5" />
-              Add New Podcast Episode
+              {editingPodcast ? <Edit className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+              {editingPodcast ? 'Edit Podcast Episode' : 'Add New Podcast Episode'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -142,17 +226,20 @@ export const AdminPanel: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="category" className="text-foreground">Category</Label>
+                <Label htmlFor="category" className="text-foreground">Categories</Label>
                 <Input
                   id="category"
                   name="category"
                   type="text"
-                  placeholder="e.g., technology, business, comedy"
+                  placeholder="e.g., technology, business, comedy (separate with commas)"
                   value={podcastData.category}
                   onChange={handleInputChange}
                   required
                   className="bg-input border-border focus:border-primary"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Separate multiple categories with commas (e.g., "technology, science, education")
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -183,15 +270,77 @@ export const AdminPanel: React.FC = () => {
                 />
               </div>
 
-              <Button
-                type="submit"
-                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-                disabled={isLoading}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                {isLoading ? 'Uploading...' : 'Upload Episode'}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="submit"
+                  className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
+                  disabled={isLoading}
+                >
+                  {editingPodcast ? <Edit className="h-4 w-4 mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+                  {isLoading ? (editingPodcast ? 'Updating...' : 'Uploading...') : (editingPodcast ? 'Update Episode' : 'Upload Episode')}
+                </Button>
+                {editingPodcast && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCancelEdit}
+                    disabled={isLoading}
+                  >
+                    Cancel
+                  </Button>
+                )}
+              </div>
             </form>
+          </CardContent>
+        </Card>
+
+        {/* Existing Podcasts */}
+        <Card className="bg-card border-border mt-8">
+          <CardHeader>
+            <CardTitle className="text-foreground">Existing Podcasts</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoadingPodcasts ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">Loading podcasts...</p>
+              </div>
+            ) : podcasts.length > 0 ? (
+              <div className="space-y-4">
+                {podcasts.map(podcast => (
+                  <div key={podcast.id} className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-foreground">{podcast.name}</h3>
+                      <p className="text-sm text-muted-foreground line-clamp-1">{podcast.description}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Categories: {podcast.categories?.join(', ') || podcast.category}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 ml-4">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEdit(podcast)}
+                        className="border-border text-foreground hover:bg-muted"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDelete(podcast.id, podcast.name)}
+                        className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No podcasts available yet.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

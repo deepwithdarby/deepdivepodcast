@@ -12,7 +12,7 @@ export const Search: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    const fetchPodcasts = async () => {
+    const searchPodcasts = async () => {
       if (!searchTerm.trim()) {
         setSearchedPodcasts([]);
         setIsLoading(false);
@@ -20,26 +20,47 @@ export const Search: React.FC = () => {
       }
 
       setIsLoading(true);
-      const lowerCaseSearchTerm = searchTerm.toLowerCase();
-      const q = query(
-        collection(db, 'podcasts'),
-        orderBy('name_lowercase'),
-        where('name_lowercase', '>=', lowerCaseSearchTerm),
-        where('name_lowercase', '<=', lowerCaseSearchTerm + '\uf8ff')
-      );
+      try {
+        const searchWords = searchTerm.toLowerCase().split(' ').filter(word => word.length > 0);
+        const promises = searchWords.map(word => {
+          const q = query(
+            collection(db, 'podcasts'),
+            where('keywords', 'array-contains', word)
+          );
+          return getDocs(q);
+        });
 
-      const querySnapshot = await getDocs(q);
-      const podcastsArray = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Podcast[];
-      setSearchedPodcasts(podcastsArray);
-      setIsLoading(false);
+        const results = await Promise.all(promises);
+        const podcastMap = new Map<string, { podcast: Podcast; matches: number }>();
+
+        results.forEach((querySnapshot, index) => {
+          querySnapshot.docs.forEach(doc => {
+            const podcast = { id: doc.id, ...doc.data() } as Podcast;
+            const existing = podcastMap.get(podcast.id);
+            if (existing) {
+              existing.matches++;
+            } else {
+              podcastMap.set(podcast.id, { podcast, matches: 1 });
+            }
+          });
+        });
+
+        const sortedPodcasts = Array.from(podcastMap.values())
+          .sort((a, b) => b.matches - a.matches)
+          .map(item => item.podcast);
+
+        setSearchedPodcasts(sortedPodcasts);
+      } catch (error) {
+        console.error('Error searching podcasts:', error);
+        setSearchedPodcasts([]);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     const debounceFetch = setTimeout(() => {
-      fetchPodcasts();
-    }, 300); // 300ms debounce
+      searchPodcasts();
+    }, 300);
 
     return () => clearTimeout(debounceFetch);
   }, [searchTerm]);

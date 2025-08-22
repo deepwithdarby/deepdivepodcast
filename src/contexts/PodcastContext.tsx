@@ -27,8 +27,17 @@ export const PodcastProvider: React.FC<{ children: ReactNode }> = ({ children })
       })) as Podcast[];
       setPodcasts(podcastsArray);
 
-      // Extract unique categories
-      const uniqueCategories = Array.from(new Set(podcastsArray.map(podcast => podcast.category)))
+      // Extract unique categories from both old single category and new categories array
+      const allCategories = new Set<string>();
+      podcastsArray.forEach(podcast => {
+        if (podcast.categories && Array.isArray(podcast.categories)) {
+          podcast.categories.forEach(cat => allCategories.add(cat));
+        } else if (podcast.category) {
+          allCategories.add(podcast.category);
+        }
+      });
+      
+      const uniqueCategories = Array.from(allCategories)
         .map(categoryName => ({
           id: categoryName.toLowerCase().replace(/\s+/g, '-'),
           name: categoryName

@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,15 +26,24 @@ export const AdminPanel: React.FC = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
         navigate('/admin/login');
       } else {
         loadPodcasts();
       }
+    };
+
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        navigate('/admin/login');
+      }
     });
 
-    return () => unsubscribe();
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
   const loadPodcasts = async () => {
@@ -57,7 +64,7 @@ export const AdminPanel: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await supabase.auth.signOut();
       navigate('/admin/login');
     } catch (error) {
       console.error('Logout error:', error);

@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useRef, useEffect, ReactNode, useCallback } from 'react';
 import { Podcast, Category, PodcastContextType } from '@/types/podcast';
-import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { supabase } from '@/integrations/supabase/client';
 
 const PodcastContext = createContext<PodcastContextType | undefined>(undefined);
 
@@ -17,23 +16,26 @@ export const PodcastProvider: React.FC<{ children: ReactNode }> = ({ children })
   const podcastsRef = useRef<Podcast[]>([]);
   const isPlayingRef = useRef(false);
 
-  // Load podcasts from Firebase
+  // Load podcasts from Supabase
   useEffect(() => {
-    const q = query(collection(db, 'podcasts'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const podcastsArray = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Podcast[];
-      setPodcasts(podcastsArray);
-
-      // Extract unique categories from both old single category and new categories array
+    const fetchPodcasts = async () => {
+      const { data, error } = await supabase
+        .from('podcasts')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching podcasts:', error);
+        return;
+      }
+      
+      setPodcasts(data || []);
+      
+      // Extract unique categories
       const allCategories = new Set<string>();
-      podcastsArray.forEach(podcast => {
+      data?.forEach(podcast => {
         if (podcast.categories && Array.isArray(podcast.categories)) {
           podcast.categories.forEach(cat => allCategories.add(cat));
-        } else if (podcast.category) {
-          allCategories.add(podcast.category);
         }
       });
       
@@ -43,9 +45,9 @@ export const PodcastProvider: React.FC<{ children: ReactNode }> = ({ children })
           name: categoryName
         }));
       setCategories(uniqueCategories);
-    });
+    };
 
-    return () => unsubscribe();
+    fetchPodcasts();
   }, []);
 
   // Load favorites from localStorage
@@ -67,10 +69,10 @@ export const PodcastProvider: React.FC<{ children: ReactNode }> = ({ children })
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
 
   const play = useCallback((podcast: Podcast) => {
-    console.log('Play function called for podcast:', podcast.name, 'Audio URL:', podcast.audioUrl);
+    console.log('Play function called for podcast:', podcast.name, 'Audio URL:', podcast.audio_url);
     if (audioRef.current) {
       setCurrentPodcast(podcast);
-      audioRef.current.src = podcast.audioUrl;
+      audioRef.current.src = podcast.audio_url;
       console.log('Audio src set to:', audioRef.current.src);
       audioRef.current.play().then(() => {
         console.log('Audio started playing successfully');

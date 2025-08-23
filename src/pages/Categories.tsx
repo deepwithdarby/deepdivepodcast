@@ -2,8 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { PodcastCard } from '@/components/PodcastCard';
 import { Podcast } from '@/types/podcast';
-import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { supabase } from '@/integrations/supabase/client';
 import { Folder } from 'lucide-react';
 
 export const Categories: React.FC = () => {
@@ -16,16 +15,22 @@ export const Categories: React.FC = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       setIsLoading(true);
-      const podcastsCollection = collection(db, 'podcasts');
-      const podcastSnapshot = await getDocs(podcastsCollection);
-      const podcastsArray = podcastSnapshot.docs.map(doc => doc.data() as Podcast);
+      const { data, error } = await supabase
+        .from('podcasts')
+        .select('*');
+      
+      if (error) {
+        console.error('Error fetching podcasts:', error);
+        setIsLoading(false);
+        return;
+      }
+      
+      const podcastsArray = data || [];
       setAllPodcasts(podcastsArray);
       const uniqueSet = new Set<string>();
       podcastsArray.forEach(p => {
         if (Array.isArray(p.categories) && p.categories.length) {
           p.categories.forEach(c => uniqueSet.add(c));
-        } else if (p.category) {
-          uniqueSet.add(p.category);
         }
       });
       setCategories(Array.from(uniqueSet));
@@ -40,8 +45,7 @@ export const Categories: React.FC = () => {
       if (selectedCategory) {
         setIsLoading(true);
         const filtered = allPodcasts.filter(p =>
-          (Array.isArray(p.categories) && p.categories.includes(selectedCategory)) ||
-          p.category === selectedCategory
+          Array.isArray(p.categories) && p.categories.includes(selectedCategory)
         );
         setFilteredPodcasts(filtered);
         setIsLoading(false);
@@ -82,7 +86,7 @@ export const Categories: React.FC = () => {
                     </h3>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {allPodcasts.filter(podcast => (Array.isArray(podcast.categories) ? podcast.categories.includes(category) : podcast.category === category)).length} episodes
+                    {allPodcasts.filter(podcast => Array.isArray(podcast.categories) && podcast.categories.includes(category)).length} episodes
                   </p>
                 </Card>
               ))}

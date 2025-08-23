@@ -10,7 +10,7 @@ import { Home } from "@/pages/Home";
 import { Search } from "@/pages/Search";
 import { Categories } from "@/pages/Categories";
 import { Favorites } from "@/pages/Favorites";
-import { AdminLogin } from "@/pages/AdminLogin";
+
 import { AdminPanel } from "@/pages/AdminPanel";
 import NotFound from "./pages/NotFound";
 
@@ -29,7 +29,7 @@ const App = () => (
               <Route path="/search" element={<Search />} />
               <Route path="/categories" element={<Categories />} />
               <Route path="/favorites" element={<Favorites />} />
-              <Route path="/admin/login" element={<AdminLogin />} />
+              
               <Route path="/admin" element={<AdminPanel />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

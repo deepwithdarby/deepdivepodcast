@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
-import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc, query, orderBy } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,8 +15,8 @@ export const AdminPanel: React.FC = () => {
     name: '',
     description: '',
     category: '',
-    bannerUrl: '',
-    audioUrl: ''
+    banner_url: '',
+    audio_url: ''
   });
   const [podcasts, setPodcasts] = useState<Podcast[]>([]);
   const [editingPodcast, setEditingPodcast] = useState<Podcast | null>(null);
@@ -28,26 +26,35 @@ export const AdminPanel: React.FC = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (!user) {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
         navigate('/admin/login');
       } else {
         loadPodcasts();
       }
+    };
+
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        navigate('/admin/login');
+      }
     });
 
-    return () => unsubscribe();
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
   const loadPodcasts = async () => {
     try {
-      const q = query(collection(db, 'podcasts'), orderBy('createdAt', 'desc'));
-      const querySnapshot = await getDocs(q);
-      const podcastsArray = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Podcast[];
-      setPodcasts(podcastsArray);
+      const { data, error } = await supabase
+        .from('podcasts')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setPodcasts(data || []);
     } catch (error) {
       console.error('Error loading podcasts:', error);
     } finally {
@@ -57,7 +64,7 @@ export const AdminPanel: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await supabase.auth.signOut();
       navigate('/admin/login');
     } catch (error) {
       console.error('Logout error:', error);
@@ -82,9 +89,9 @@ export const AdminPanel: React.FC = () => {
     setPodcastData({
       name: podcast.name,
       description: podcast.description,
-      category: podcast.categories?.join(', ') || podcast.category,
-      bannerUrl: podcast.bannerUrl,
-      audioUrl: podcast.audioUrl
+      category: podcast.categories?.join(', ') || '',
+      banner_url: podcast.banner_url,
+      audio_url: podcast.audio_url
     });
   };
 
@@ -94,8 +101,8 @@ export const AdminPanel: React.FC = () => {
       name: '',
       description: '',
       category: '',
-      bannerUrl: '',
-      audioUrl: ''
+      banner_url: '',
+      audio_url: ''
     });
   };
 
@@ -103,7 +110,13 @@ export const AdminPanel: React.FC = () => {
     if (!confirm(`Are you sure you want to delete "${podcastName}"?`)) return;
 
     try {
-      await deleteDoc(doc(db, 'podcasts', podcastId));
+      const { error } = await supabase
+        .from('podcasts')
+        .delete()
+        .eq('id', podcastId);
+      
+      if (error) throw error;
+      
       toast({
         title: "Podcast deleted",
         description: `"${podcastName}" has been deleted.`,
@@ -129,22 +142,32 @@ export const AdminPanel: React.FC = () => {
       const podcastPayload = {
         name: podcastData.name,
         description: podcastData.description,
-        bannerUrl: podcastData.bannerUrl,
-        audioUrl: podcastData.audioUrl,
+        banner_url: podcastData.banner_url,
+        audio_url: podcastData.audio_url,
         categories,
         keywords,
-        name_lowercase: podcastData.name.toLowerCase(),
-        createdAt: editingPodcast ? editingPodcast.createdAt : Date.now()
+        name_lowercase: podcastData.name.toLowerCase()
       };
 
       if (editingPodcast) {
-        await updateDoc(doc(db, 'podcasts', editingPodcast.id), podcastPayload);
+        const { error } = await supabase
+          .from('podcasts')
+          .update(podcastPayload)
+          .eq('id', editingPodcast.id);
+        
+        if (error) throw error;
+        
         toast({
           title: "Podcast updated successfully!",
           description: `"${podcastData.name}" has been updated.`,
         });
       } else {
-        await addDoc(collection(db, 'podcasts'), podcastPayload);
+        const { error } = await supabase
+          .from('podcasts')
+          .insert([podcastPayload]);
+        
+        if (error) throw error;
+        
         toast({
           title: "Podcast uploaded successfully!",
           description: `"${podcastData.name}" has been added to the podcast library.`,
@@ -156,8 +179,8 @@ export const AdminPanel: React.FC = () => {
         name: '',
         description: '',
         category: '',
-        bannerUrl: '',
-        audioUrl: ''
+        banner_url: '',
+        audio_url: ''
       });
       setEditingPodcast(null);
       loadPodcasts();
@@ -246,13 +269,13 @@ export const AdminPanel: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="bannerUrl" className="text-foreground">Cover Image URL</Label>
+                <Label htmlFor="banner_url" className="text-foreground">Cover Image URL</Label>
                 <Input
-                  id="bannerUrl"
-                  name="bannerUrl"
+                  id="banner_url"
+                  name="banner_url"
                   type="url"
                   placeholder="https://example.com/cover.jpg"
-                  value={podcastData.bannerUrl}
+                  value={podcastData.banner_url}
                   onChange={handleInputChange}
                   required
                   className="bg-input border-border focus:border-primary"
@@ -260,13 +283,13 @@ export const AdminPanel: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="audioUrl" className="text-foreground">Audio File URL</Label>
+                <Label htmlFor="audio_url" className="text-foreground">Audio File URL</Label>
                 <Input
-                  id="audioUrl"
-                  name="audioUrl"
+                  id="audio_url"
+                  name="audio_url"
                   type="url"
                   placeholder="https://example.com/episode.mp3"
-                  value={podcastData.audioUrl}
+                  value={podcastData.audio_url}
                   onChange={handleInputChange}
                   required
                   className="bg-input border-border focus:border-primary"
@@ -315,7 +338,7 @@ export const AdminPanel: React.FC = () => {
                       <h3 className="font-semibold text-foreground">{podcast.name}</h3>
                       <p className="text-sm text-muted-foreground line-clamp-1">{podcast.description}</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Categories: {podcast.categories?.join(', ') || podcast.category}
+                        Categories: {podcast.categories?.join(', ') || 'No categories'}
                       </p>
                     </div>
                     <div className="flex gap-2 ml-4">

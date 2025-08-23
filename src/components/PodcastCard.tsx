@@ -32,7 +32,7 @@ export const PodcastCard: React.FC<PodcastCardProps> = ({ podcast }) => {
     <Card className="group relative overflow-hidden bg-card hover:bg-music-hover transition-all duration-300 cursor-pointer border-border/50">
       <div className="aspect-square relative">
         <img 
-          src={podcast.bannerUrl} 
+          src={podcast.banner_url} 
           alt={podcast.name}
           className="w-full h-full object-cover"
         />
@@ -59,7 +59,7 @@ export const PodcastCard: React.FC<PodcastCardProps> = ({ podcast }) => {
       <div className="p-4">
         <h3 className="font-semibold text-foreground mb-1 truncate">{podcast.name}</h3>
         <p className="text-sm text-muted-foreground truncate">{podcast.description}</p>
-        <p className="text-xs text-muted-foreground mt-1 capitalize">{podcast.category}</p>
+        <p className="text-xs text-muted-foreground mt-1 capitalize">{podcast.categories?.[0] || ''}</p>
       </div>
     </Card>
   );

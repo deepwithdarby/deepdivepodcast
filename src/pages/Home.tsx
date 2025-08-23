@@ -3,8 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Search, Mic } from 'lucide-react';
 import { PodcastCard } from '@/components/PodcastCard';
 import { Podcast } from '@/types/podcast';
-import { db } from '@/lib/firebase';
-import { collection, query, orderBy, limit, getDocs, where, startAfter, DocumentSnapshot } from 'firebase/firestore';
+import { supabase } from '@/integrations/supabase/client';
 
 export const Home: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -13,7 +12,7 @@ export const Home: React.FC = () => {
   const [searchedPodcasts, setSearchedPodcasts] = useState<Podcast[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
+  const [lastDoc, setLastDoc] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
 
   const loadPodcasts = useCallback(async (loadMore = false) => {
@@ -23,27 +22,24 @@ export const Home: React.FC = () => {
     setIsLoadingMore(loadMore);
 
     try {
-      let q;
+      let query = supabase
+        .from('podcasts')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
       if (loadMore && lastDoc) {
-        q = query(
-          collection(db, 'podcasts'), 
-          orderBy('createdAt', 'desc'), 
-          startAfter(lastDoc),
-          limit(20)
-        );
-      } else {
-        q = query(
-          collection(db, 'podcasts'), 
-          orderBy('createdAt', 'desc'), 
-          limit(20)
-        );
+        query = query.lt('created_at', lastDoc);
       }
 
-      const querySnapshot = await getDocs(q);
-      const podcastsArray = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...(doc.data() as Omit<Podcast, 'id'>)
-      }));
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Error loading podcasts:', error);
+        return;
+      }
+
+      const podcastsArray = data || [];
 
       if (loadMore) {
         setAllPodcasts(prev => [...prev, ...podcastsArray]);
@@ -52,8 +48,8 @@ export const Home: React.FC = () => {
         setRecentPodcasts(podcastsArray.slice(0, 5));
       }
 
-      setLastDoc(querySnapshot.docs[querySnapshot.docs.length - 1] || null);
-      setHasMore(querySnapshot.docs.length === 20);
+      setLastDoc(podcastsArray.length > 0 ? podcastsArray[podcastsArray.length - 1].created_at : null);
+      setHasMore(podcastsArray.length === 20);
     } catch (error) {
       console.error('Error loading podcasts:', error);
     } finally {
@@ -76,23 +72,20 @@ export const Home: React.FC = () => {
       setIsLoading(true);
       try {
         const searchWords = searchTerm.toLowerCase().split(' ').filter(word => word.length > 0);
-        const promises = searchWords.map(word => {
-          const q = query(
-            collection(db, 'podcasts'),
-            where('keywords', 'array-contains', word)
-          );
-          return getDocs(q);
-        });
-
-        const results = await Promise.all(promises);
         const podcastMap = new Map<string, { podcast: Podcast; matches: number }>();
 
-        results.forEach((querySnapshot, index) => {
-          querySnapshot.docs.forEach(doc => {
-            const podcast = {
-              id: doc.id,
-              ...(doc.data() as Omit<Podcast, 'id'>)
-            };
+        for (const word of searchWords) {
+          const { data, error } = await supabase
+            .from('podcasts')
+            .select('*')
+            .contains('keywords', [word]);
+
+          if (error) {
+            console.error('Error searching podcasts:', error);
+            continue;
+          }
+
+          data?.forEach(podcast => {
             const existing = podcastMap.get(podcast.id);
             if (existing) {
               existing.matches++;
@@ -100,7 +93,7 @@ export const Home: React.FC = () => {
               podcastMap.set(podcast.id, { podcast, matches: 1 });
             }
           });
-        });
+        }
 
         const sortedPodcasts = Array.from(podcastMap.values())
           .sort((a, b) => b.matches - a.matches)

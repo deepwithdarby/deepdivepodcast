@@ -32,7 +32,7 @@ export const PodcastPlayer: React.FC = () => {
         {/* Podcast Info */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <img 
-            src={currentPodcast.bannerUrl} 
+            src={currentPodcast.banner_url} 
             alt={currentPodcast.name}
             className="w-12 h-12 rounded-md object-cover"
           />

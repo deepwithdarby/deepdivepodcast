@@ -3,8 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Search as SearchIcon, Mic } from 'lucide-react';
 import { PodcastCard } from '@/components/PodcastCard';
 import { Podcast } from '@/types/podcast';
-import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { supabase } from '@/integrations/supabase/client';
 
 export const Search: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -22,20 +21,20 @@ export const Search: React.FC = () => {
       setIsLoading(true);
       try {
         const searchWords = searchTerm.toLowerCase().split(' ').filter(word => word.length > 0);
-        const promises = searchWords.map(word => {
-          const q = query(
-            collection(db, 'podcasts'),
-            where('keywords', 'array-contains', word)
-          );
-          return getDocs(q);
-        });
-
-        const results = await Promise.all(promises);
         const podcastMap = new Map<string, { podcast: Podcast; matches: number }>();
 
-        results.forEach((querySnapshot, index) => {
-          querySnapshot.docs.forEach(doc => {
-            const podcast = { id: doc.id, ...doc.data() } as Podcast;
+        for (const word of searchWords) {
+          const { data, error } = await supabase
+            .from('podcasts')
+            .select('*')
+            .contains('keywords', [word]);
+
+          if (error) {
+            console.error('Error searching podcasts:', error);
+            continue;
+          }
+
+          data?.forEach(podcast => {
             const existing = podcastMap.get(podcast.id);
             if (existing) {
               existing.matches++;
@@ -43,7 +42,7 @@ export const Search: React.FC = () => {
               podcastMap.set(podcast.id, { podcast, matches: 1 });
             }
           });
-        });
+        }
 
         const sortedPodcasts = Array.from(podcastMap.values())
           .sort((a, b) => b.matches - a.matches)

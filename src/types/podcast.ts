@@ -2,12 +2,13 @@ export interface Podcast {
   id: string;
   name: string;
   description: string;
-  category?: string;
-  categories?: string[];
-  keywords?: string[];
-  bannerUrl: string;
-  audioUrl: string;
-  createdAt: number;
+  banner_url: string;
+  audio_url: string;
+  categories: string[];
+  keywords: string[];
+  name_lowercase: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Category {

@@ -14,7 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      podcasts: {
+        Row: {
+          audio_url: string
+          banner_url: string
+          categories: string[] | null
+          created_at: string
+          description: string
+          id: string
+          keywords: string[] | null
+          name: string
+          name_lowercase: string
+          updated_at: string
+        }
+        Insert: {
+          audio_url: string
+          banner_url: string
+          categories?: string[] | null
+          created_at?: string
+          description: string
+          id?: string
+          keywords?: string[] | null
+          name: string
+          name_lowercase: string
+          updated_at?: string
+        }
+        Update: {
+          audio_url?: string
+          banner_url?: string
+          categories?: string[] | null
+          created_at?: string
+          description?: string
+          id?: string
+          keywords?: string[] | null
+          name?: string
+          name_lowercase?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

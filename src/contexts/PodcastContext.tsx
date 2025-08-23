@@ -158,11 +158,14 @@ export const PodcastProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
   const toggleFavorite = useCallback((podcastId: string) => {
-    setFavorites(prev => 
-      prev.includes(podcastId) 
+    setFavorites(prev => {
+      const newFavorites = prev.includes(podcastId) 
         ? prev.filter(id => id !== podcastId)
-        : [...prev, podcastId]
-    );
+        : [...prev, podcastId];
+      // Immediately save to localStorage
+      localStorage.setItem('favoritePodcasts', JSON.stringify(newFavorites));
+      return newFavorites;
+    });
   }, []);
 
   const isFavorite = useCallback((podcastId: string) => {

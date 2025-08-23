@@ -59,7 +59,9 @@ export const PodcastCard: React.FC<PodcastCardProps> = ({ podcast }) => {
       <div className="p-4">
         <h3 className="font-semibold text-foreground mb-1 truncate">{podcast.name}</h3>
         <p className="text-sm text-muted-foreground truncate">{podcast.description}</p>
-        <p className="text-xs text-muted-foreground mt-1 capitalize">{podcast.categories?.[0] || ''}</p>
+        <p className="text-xs text-muted-foreground mt-1 capitalize">
+          {podcast.categories?.slice(0, 2).join(', ') || ''}
+        </p>
       </div>
     </Card>
   );

@@ -18,7 +18,13 @@ export const Landing: React.FC<LandingProps> = ({ onGetStarted }) => {
             className="w-32 h-32 object-contain"
           />
         </div>
-        
+        <Button 
+          onClick={onGetStarted}
+          size="lg"
+          className="px-12 py-6 text-lg font-semibold bg-primary hover:bg-primary/90 transform hover:scale-105 transition-all duration-200"
+        >
+          Get Started
+        </Button>
         {/* Title */}
         <div className="space-y-4">
           <h1 className="text-5xl font-bold bg-gradient-to-r from-primary to-music-secondary bg-clip-text text-transparent">
@@ -55,13 +61,7 @@ export const Landing: React.FC<LandingProps> = ({ onGetStarted }) => {
         </div>
         
         {/* CTA Button */}
-        <Button 
-          onClick={onGetStarted}
-          size="lg"
-          className="px-12 py-6 text-lg font-semibold bg-primary hover:bg-primary/90 transform hover:scale-105 transition-all duration-200"
-        >
-          Get Started
-        </Button>
+        
       </div>
     </div>
   );

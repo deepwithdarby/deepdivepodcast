@@ -12,6 +12,7 @@ import { Categories } from "@/pages/Categories";
 import { Favorites } from "@/pages/Favorites";
 
 import { AdminPanel } from "@/pages/AdminPanel";
+import { AdminLogin } from "@/pages/AdminLogin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
               <Route path="/favorites" element={<Favorites />} />
               
               <Route path="/admin" element={<AdminPanel />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <BottomNavigation />

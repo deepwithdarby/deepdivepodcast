@@ -29,6 +29,8 @@ const App = () => {
 
   const handleLoadingComplete = () => {
     setAppState('app');
+    // Replace the current history entry to prevent back navigation to landing/loading
+    window.history.replaceState(null, '', '/');
   };
 
   if (appState === 'landing') {

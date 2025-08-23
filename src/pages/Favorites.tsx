@@ -2,39 +2,26 @@ import React, { useEffect, useState } from 'react';
 import { PodcastCard } from '@/components/PodcastCard';
 import { usePodcast } from '@/contexts/PodcastContext';
 import { Podcast } from '@/types/podcast';
-import { supabase } from '@/integrations/supabase/client';
+
 import { Heart } from 'lucide-react';
 
 export const Favorites: React.FC = () => {
-  const { favorites } = usePodcast();
+  const { favorites, podcasts } = usePodcast();
   const [favoritePodcasts, setFavoritePodcasts] = useState<Podcast[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchFavoritePodcasts = async () => {
-      setIsLoading(true);
-      if (favorites.length === 0) {
-        setFavoritePodcasts([]);
-        setIsLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('podcasts')
-        .select('*')
-        .in('id', favorites);
-
-      if (error) {
-        console.error('Error fetching favorite podcasts:', error);
-        setFavoritePodcasts([]);
-      } else {
-        setFavoritePodcasts(data || []);
-      }
+    setIsLoading(true);
+    if (favorites.length === 0) {
+      setFavoritePodcasts([]);
       setIsLoading(false);
-    };
+      return;
+    }
 
-    fetchFavoritePodcasts();
-  }, [favorites]);
+    const matched = podcasts.filter(p => favorites.includes(p.id));
+    setFavoritePodcasts(matched);
+    setIsLoading(false);
+  }, [favorites, podcasts]);
 
   return (
     <div className="min-h-screen bg-background p-4 pb-40">

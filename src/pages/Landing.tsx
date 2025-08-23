@@ -18,13 +18,6 @@ export const Landing: React.FC<LandingProps> = ({ onGetStarted }) => {
             className="w-32 h-32 object-contain"
           />
         </div>
-        <Button 
-          onClick={onGetStarted}
-          size="lg"
-          className="px-12 py-6 text-lg font-semibold bg-primary hover:bg-primary/90 transform hover:scale-105 transition-all duration-200"
-        >
-          Get Started
-        </Button>
         {/* Title */}
         <div className="space-y-4">
           <h1 className="text-5xl font-bold bg-gradient-to-r from-primary to-music-secondary bg-clip-text text-transparent">
@@ -37,7 +30,13 @@ export const Landing: React.FC<LandingProps> = ({ onGetStarted }) => {
             Dive deep into conversations that matter. Explore thousands of podcasts across every category imaginable.
           </p>
         </div>
-        
+        <Button 
+          onClick={onGetStarted}
+          size="lg"
+          className="px-12 py-6 text-lg font-semibold bg-primary hover:bg-primary/90 transform hover:scale-105 transition-all duration-200"
+        >
+          Get Started
+        </Button>
         {/* Features */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
           <div className="space-y-2">

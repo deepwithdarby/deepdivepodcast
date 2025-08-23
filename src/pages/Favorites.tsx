@@ -2,8 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { PodcastCard } from '@/components/PodcastCard';
 import { usePodcast } from '@/contexts/PodcastContext';
 import { Podcast } from '@/types/podcast';
-import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, documentId } from 'firebase/firestore';
+import { supabase } from '@/integrations/supabase/client';
 import { Heart } from 'lucide-react';
 
 export const Favorites: React.FC = () => {
@@ -20,13 +19,17 @@ export const Favorites: React.FC = () => {
         return;
       }
 
-      const q = query(collection(db, 'podcasts'), where(documentId(), 'in', favorites));
-      const querySnapshot = await getDocs(q);
-      const podcastsArray = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Podcast[];
-      setFavoritePodcasts(podcastsArray);
+      const { data, error } = await supabase
+        .from('podcasts')
+        .select('*')
+        .in('id', favorites);
+
+      if (error) {
+        console.error('Error fetching favorite podcasts:', error);
+        setFavoritePodcasts([]);
+      } else {
+        setFavoritePodcasts(data || []);
+      }
       setIsLoading(false);
     };
 

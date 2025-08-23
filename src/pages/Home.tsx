@@ -74,26 +74,63 @@ export const Home: React.FC = () => {
         const searchWords = searchTerm.toLowerCase().split(' ').filter(word => word.length > 0);
         const podcastMap = new Map<string, { podcast: Podcast; matches: number }>();
 
-        for (const word of searchWords) {
-          const { data, error } = await supabase
+        // Search in multiple fields for better results
+        const searchQuery = searchWords.join(' ');
+        
+        // Search by keywords (exact match)
+        const keywordPromises = searchWords.map(word => 
+          supabase
             .from('podcasts')
             .select('*')
-            .contains('keywords', [word]);
+            .contains('keywords', [word])
+        );
+        
+        // Search by name and description (fuzzy match)
+        const textSearchPromise = supabase
+          .from('podcasts')
+          .select('*')
+          .or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,name_lowercase.ilike.%${searchQuery}%`);
+        
+        // Search by categories
+        const categoryPromises = searchWords.map(word =>
+          supabase
+            .from('podcasts')
+            .select('*')
+            .contains('categories', [word])
+        );
 
-          if (error) {
-            console.error('Error searching podcasts:', error);
-            continue;
+        const allPromises = [...keywordPromises, textSearchPromise, ...categoryPromises];
+        const results = await Promise.all(allPromises);
+
+        results.forEach((result, index) => {
+          if (result.error) {
+            console.error('Error searching podcasts:', result.error);
+            return;
           }
 
-          data?.forEach(podcast => {
+          result.data?.forEach(podcast => {
             const existing = podcastMap.get(podcast.id);
-            if (existing) {
-              existing.matches++;
+            let scoreBoost = 1;
+            
+            // Give higher scores for different types of matches
+            if (index === keywordPromises.length) {
+              // Text search gets medium boost
+              scoreBoost = 2;
+            } else if (index < keywordPromises.length) {
+              // Keyword matches get highest boost
+              scoreBoost = 3;
             } else {
-              podcastMap.set(podcast.id, { podcast, matches: 1 });
+              // Category matches get medium boost
+              scoreBoost = 2;
+            }
+            
+            if (existing) {
+              existing.matches += scoreBoost;
+            } else {
+              podcastMap.set(podcast.id, { podcast, matches: scoreBoost });
             }
           });
-        }
+        });
 
         const sortedPodcasts = Array.from(podcastMap.values())
           .sort((a, b) => b.matches - a.matches)
